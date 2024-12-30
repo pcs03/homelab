@@ -1,0 +1,6 @@
+---
+docker_vars:
+  timezone: Europe/Amsterdam
+  ports:
+    ntfy: 6876
+

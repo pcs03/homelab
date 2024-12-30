@@ -1,0 +1,63 @@
+---
+# This playbook assumes any remote host already has the following:
+# - User `pstet` with ssh access and sudo access
+- name: Ensure localhost has the required packages
+  hosts: localhost
+  become: true
+  tasks:
+    - name: Ensure sshpass is installed on localhost
+      ansible.builtin.package:
+        name: sshpass
+        state: present
+
+- name: Ensure homelab device is configured for use with Ansible
+  hosts: homelab
+  remote_user: "{{ initial_user }}" 
+  gather_facts: false
+
+  vars:
+    initial_user: pstet
+    ssh_public_key: '/home/pstet/.ssh/id_rsa.pub'
+
+  tasks:
+    - name: Ensure public-key authentication is setup for the inital user
+      ansible.builtin.authorized_key:
+        user: "{{ initial_user }}"
+        state: present
+        key: "{{ lookup('file', ssh_public_key) }}"
+
+    - name: Setup user `ansible`
+      become: true
+      block:
+        - name: Ensure user ansible is present
+          ansible.builtin.user:
+            name: ansible
+            create_home: true
+            shell: '/bin/bash'
+            state: present
+
+        - name: Ensure sudo access for ansible user
+          ansible.builtin.lineinfile:
+            path: /etc/sudoers.d/ansible
+            line: "ansible ALL=(ALL) NOPASSWD: ALL"
+            mode: "0440"
+            owner: root
+            group: root
+            state: present
+            create: true
+            validate: visudo -cf %s
+
+        - name: Ensure public-key authentication is setup for user `ansible`
+          ansible.builtin.authorized_key:
+            user: ansible
+            state: present
+            key: "{{ lookup('file', ssh_public_key) }}"
+
+    - name: Ensure host is in local /etc/hosts
+      become: true
+      delegate_to: localhost
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: '^{{ ansible_host }}'
+        line: "{{ ansible_host }} {{ inventory_hostname }}"
+        state: present

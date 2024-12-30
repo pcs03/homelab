@@ -1,0 +1,50 @@
+---
+- name: Ensure docker compose stacks are present
+  become: true
+  hosts: nixon
+  vars:
+    docker_root_directory: /srv/docker
+  vars_files:
+    - vars/docker-stacks-pi.yml
+    - vars/docker-env.yml
+  tasks:
+    - name: Ensure docker directory exists
+      ansible.builtin.file:
+        path: "{{ docker_root_directory }}"
+        state: directory
+        mode: "0775"
+        owner: pstet
+        group: pstet
+
+    - name: Ensure directories for stacks are present
+      ansible.builtin.file:
+        path: "{{ docker_root_directory }}/{{ item.name }}"
+        state: directory
+        mode: "0775"
+        owner: pstet
+        group: pstet
+      loop: "{{ docker_stacks }}"
+
+    - name: Ensure docker-compose.yml files are present
+      ansible.builtin.template:
+        src: "{{ item.template }}"
+        dest: "{{ docker_root_directory }}/{{ item.name }}/docker-compose.yml"
+        mode: "0775"
+        owner: pstet
+        group: pstet
+      loop: "{{ docker_stacks }}"
+
+    - name: Ensure docker compose .env files are present
+      ansible.builtin.template:
+        src: "{{ item.env }}"
+        dest: "{{ docker_root_directory }}/{{ item.name }}/.env"
+        mode: "0775"
+        owner: pstet
+        group: pstet
+      loop: "{{ docker_stacks }}"
+
+    - name: Ensure docker compose stacks are up
+      community.docker.docker_compose_v2:
+        project_src: "{{ docker_root_directory }}/{{ item.name }}"
+        state: present
+      loop: "{{ docker_stacks }}"

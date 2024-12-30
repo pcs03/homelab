@@ -1,0 +1,8 @@
+---
+- name: Docker
+  hosts: nixon
+  tasks:
+    - name: Ensure services are started
+      community.docker.docker_compose_v2:
+        project_src: /srv/docker/proxy
+        state: present

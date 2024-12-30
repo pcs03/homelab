@@ -1,0 +1,53 @@
+---
+- name: Setup for homelab devices running Ubuntu
+  hosts: homelab
+  become: true
+  vars:
+    timezone: "Europe/Amsterdam"
+  tasks:
+    - name: Ensure system is running Ubuntu
+      ansible.builtin.fail:
+        msg: "System must be running Ubuntu for this playbook"
+      when: ansible_facts['distribution'] != "Ubuntu"
+
+    - name: Ensure system and packages are up to date
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: true
+
+    - name: Set timezone to "{{ timezone }}"
+      ansible.builtin.file:
+        src: /usr/share/zoneinfo/{{ timezone }}
+        dest: /etc/localtime
+        owner: root
+        group: root
+        state: link
+        force: true
+
+    - name: Ensure Docker is installed
+      ansible.builtin.include_role:
+        name: geerlingguy.docker
+
+    - name: Ensure user `pstet` is in the docker group
+      ansible.builtin.user:
+        name: pstet
+        append: true
+        groups:
+          - docker
+
+    - name: Purge snap
+      block:
+        - name: Ensure snapd is purged from the system
+          ansible.builtin.apt:
+            purge: true
+            autoremove: true
+            name: snapd
+            state: absent
+
+        - name: Ensure snap preference is present
+          ansible.builtin.copy:
+            src: "files/nosnap.pref"
+            dest: /etc/apt/preferences.d/nosnap.pref
+            mode: "0644"
+            owner: root
+            group: root

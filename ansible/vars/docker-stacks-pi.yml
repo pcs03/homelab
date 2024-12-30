@@ -1,0 +1,5 @@
+---
+docker_stacks:
+  - name: ntfy
+    template: templates/ntfy-pi.yml.j2
+    env: templates/ntfy-pi.env.j2
