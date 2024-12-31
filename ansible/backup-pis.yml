@@ -42,4 +42,5 @@
           loop: "{{ docker_compose_stack_names }}"
           vars:
             docker_compose_stack_name: "{{ item }}"
+            docker_compose_stack_path: "{{ docker_root_directory }}/{{ item }}"
             target_backup_directory: "{{ backup_root_directory }}/{{ current_date_cmd.stdout }}/{{ inventory_hostname }}"

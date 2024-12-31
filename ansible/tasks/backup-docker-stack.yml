@@ -1,12 +1,7 @@
 ---
-- name: Set variables
-  ansible.builtin.set_fact:
-    docker_compose_stack_path: "{{ docker_root_directory }}/{{ docker_compose_stack_name }}"
-    backup_archive_path: "{{ target_backup_directory }}/{{ docker_compose_stack_name }}.tar.gz"
-
 - name: Register status of target archive path
   ansible.builtin.stat:
-    path: "{{ backup_archive_path }}"
+    path: "{{ target_backup_directory }}/{{ docker_compose_stack_name }}.tar.gz"
   register: backup_archive_status
 
 - name: Create backup of docker directory
@@ -20,11 +15,11 @@
     - name: Create an archive of the docker compose stack
       community.general.archive:
         path: "{{ docker_compose_stack_path }}"
-        dest: "{{ backup_archive_path }}"
+        dest: "{{ target_backup_directory }}/{{ docker_compose_stack_name }}.tar.gz"
         mode: "0644"
         owner: pstet
         group: pstet
-
+  always:
     - name: Start the docker compose stack
       community.docker.docker_compose_v2:
         project_src: "{{ docker_compose_stack_path }}"
