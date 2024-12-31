@@ -1,0 +1,45 @@
+---
+- name: Backup data from raspberry pis
+  hosts: pis
+  become: true
+  vars:
+    docker_root_directory: /srv/docker
+    backup_root_directory: /srv/backups
+    docker_compose_stack_names:
+      - homeassistant
+      - ntfy
+      - pihole
+      - portainer
+      - proxy
+      - uptime-kuma
+      - vaultwarden
+      - wireguard
+  tasks:
+    - name: Register the status of the docker root directory
+      ansible.builtin.stat:
+        path: "{{ docker_root_directory }}"
+      register: docker_root_directory_status
+
+    - name: Make backups of docker directories if present
+      when: docker_root_directory_status.stat.exists
+      block:
+        - name: Register the current date
+          ansible.builtin.command: date +%F
+          register: current_date_cmd
+          changed_when: false
+
+        - name: Ensure target backup directory exists
+          ansible.builtin.file:
+            path: "{{ docker_root_directory }}/{{ current_date_cmd.stdout }}/{{ inventory_hostname }}"
+            state: directory
+            mode: "0755"
+            owner: pstet
+            group: pstet
+
+        - name: Create backup of each docker compose stack
+          ansible.builtin.include_tasks:
+            file: tasks/backup-docker-stack.yml
+          loop: "{{ docker_compose_stack_names }}"
+          vars:
+            docker_compose_stack_name: "{{ item }}"
+            target_backup_directory: "{{ backup_root_directory }}/{{ current_date_cmd.stdout }}/{{ inventory_hostname }}"
