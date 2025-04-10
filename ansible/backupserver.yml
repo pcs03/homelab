@@ -5,6 +5,7 @@
     - name: Update and upgrade apt package index (Debian)
       ansible.builtin.apt:
         update_cache: true
+        cache_valid_time: 3600
         upgrade: true
       when: ansible_os_family == "Debian"
       become: true
@@ -63,10 +64,6 @@
   hosts: backup
   become: true
   tasks:
-    - name: Print hosts
-      ansible.builtin.debug:
-        var: backup_clients
-
     - name: Purge snap
       ansible.builtin.include_role:
         name: purge-snap
@@ -76,6 +73,7 @@
     - name: Update and upgrade packages
       ansible.builtin.apt:
         update_cache: true
+        cache_valid_time: 3600
         upgrade: true
 
     - name: Install packages
