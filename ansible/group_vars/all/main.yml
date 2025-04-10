@@ -21,3 +21,4 @@ borg_packages:
     - python-llfuse
   Debian:
     - borgbackup
+    - ethtool

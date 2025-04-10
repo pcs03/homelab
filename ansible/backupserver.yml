@@ -83,6 +83,24 @@
         name: "{{ borg_packages[ansible_os_family] }}"
         state: present
 
+    - name: Ensure persistent wake on lan configuration is present
+      ansible.builtin.template:
+        src: wol.service.j2
+        dest: /etc/systemd/system/wol.service
+        mode: "0644"
+        owner: root
+        group: root
+      notify: Systemd daemon reload
+
+    - name: Ensure system daemon-reload is triggered
+      ansible.builtin.meta: flush_handlers
+
+    - name: Ensure wol service is enabled and started
+      ansible.builtin.service:
+        name: wol.service
+        state: started
+        enabled: true
+
     - name: Ensure group exists
       ansible.builtin.group:
         name: "{{ borg_group }}"
@@ -149,6 +167,11 @@
       loop: "{{ backup_clients }}"
       loop_control:
         loop_var: client
+
+  handlers:
+    - name: Systemd daemon reload
+      ansible.builtin.systemd:
+        daemon_reload: true
 
 - name: Setup borg backup for each client
   hosts: servers,pis,desktop
