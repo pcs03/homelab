@@ -1,6 +1,19 @@
 ---
+- name: Create ssh keys
+  hosts: localhost
+  tasks:
+    - name: Create ssh keypair
+      community.crypto.openssh_keypair:
+        path: ~/.ssh/id_rsa
+
+    - name: Ensure sshpass is installed
+      ansible.builtin.package:
+        name: sshpass
+        state: present
+      become: true
+
 - name: Initial setup for each homelab device for use with ansible
-  hosts: homelab
+  hosts: homelab,desktop
   become: true
   remote_user: pstet
   tasks:

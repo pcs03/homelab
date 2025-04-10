@@ -176,7 +176,7 @@
   tasks:
     - name: Fetch borg host key
       ansible.builtin.set_fact:
-        borg_host_key: "{{ lookup('pipe', 'ssh-keyscan -t rsa ' + borg_host).split('\n')[1] }}"
+        borg_host_key: "{{ lookup('pipe', 'ssh-keyscan -t rsa ' ~ borg_host ~ ' 2>/dev/null | grep -v ^#') }}"
 
     - name: Ensure the backup server is a known host
       ansible.builtin.known_hosts:
