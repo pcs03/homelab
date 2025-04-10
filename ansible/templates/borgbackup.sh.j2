@@ -1,0 +1,92 @@
+#!/bin/bash
+
+{% if borg_docker is defined %}
+export DOCKER_ROOT={{ borg_docker.root_directory }}
+{% endif %}
+export BORG_REPO={{ borg_user }}@{{ borg_host }}:{{ borg_repo }}
+export BORG_PASSPHRASE='{{ borg_passphrase }}'
+
+info() { printf "\n%s %s\n\n" "$(date)" "$*" >&2; }
+trap 'echo $( date ) Backup interrupted >&2; exit 2' INT TERM
+
+{% if borg_docker is defined %}
+info "Stopping all docker containers"
+
+# This method stops all compose stacks at the same time,
+# and waits before moving on with the rest of the script
+find "$DOCKER_ROOT" -maxdepth 2 -name "compose.yml" \
+  -print0 | xargs -0 -P$(nproc) -I{} \
+  bash -c 'docker compose -f "$1" down' _ {}
+
+info "All docker containers stopped"
+{% endif %}
+
+info "Starting backup"
+
+borg create \
+    --verbose \
+    --filter AME \
+    --list \
+    --stats \
+    --show-rc \
+    --compression lz4 \
+    --exclude-caches \
+    {% for exclude in borg_exclude_directories %}
+--exclude '{{ exclude }}' \
+    {% endfor %}
+    \
+    ::'{now}' \
+    {% for directory in borg_backup_directories %}
+'{{ directory }}' \
+    {% endfor %}
+    {% if borg_docker is defined %}
+    {{ borg_docker.root_directory }}
+    {% endif %}
+
+backup_exit=$?
+
+{% if borg_docker is defined %}
+echo "Starting all docker containers"
+{% if borg_docker.stack_start_priority is defined %}
+{% for stack in borg_docker.stack_start_priority %}
+docker compose -f "{{ borg_docker.root_directory }}/{{ stack }}/compose.yml" up -d # This one needs to be started first because other containers depend on it
+{% endfor %}
+{% endif %}
+info "Starting all docker containers"
+
+find "$DOCKER_ROOT" -maxdepth 2 -name "compose.yml" \
+  -print0 | xargs -0 -P$(nproc) -I{} \
+  bash -c 'docker compose -f "$1" up -d' _ {}
+
+info "All docker containers started"
+{% endif %}
+
+info "Pruning Repository"
+
+borg prune \
+    --list \
+    --show-rc \
+    --keep-daily 7 \
+    --keep-weekly 4 \
+    --keep-monthly 6
+
+prune_exit=$?
+
+info "Compacting Repository"
+
+borg compact
+
+compact_exit=$?
+
+global_exit=$((backup_exit > prune_exit ? backup_exit : prune_exit))
+global_exit=$((compact_exit > global_exit ? compact_exit : global_exit))
+
+if [ ${global_exit} -eq 0 ]; then
+    info "Backup, Prune, and Compact finished successfully"
+elif [ ${global_exit} -eq 1 ]; then
+    info "Backup, Prune, and/or Compact finished with warnings"
+else
+    info "Backup, Prune, and/or Compact finished with errors"
+fi
+
+exit ${global_exit}

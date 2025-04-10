@@ -1,0 +1,194 @@
+---
+- name: Setup and Fetch SSH public keys of backup clients
+  hosts: servers,pis,desktop
+  tasks:
+    - name: Update and upgrade apt package index (Debian)
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: true
+      when: ansible_os_family == "Debian"
+      become: true
+
+    - name: Update and upgrade pacman index (Archlinux)
+      ansible.builtin.pacman:
+        update_cache: true
+        upgrade: true
+      when: ansible_os_family == "Archlinux"
+      become: true
+
+    - name: Ensure borg is installed
+      ansible.builtin.package:
+        name: "{{ borg_packages[ansible_os_family] }}"
+      become: true
+
+    - name: Ensure SSH keypair exists
+      community.crypto.openssh_keypair:
+        path: /root/.ssh/id_rsa
+      become: true
+
+    - name: Fetch SSH keypair
+      ansible.builtin.slurp:
+        src: /root/.ssh/id_rsa.pub
+      register: client_ssh_public_key
+      become: true
+
+    - name: Ensure key directory on control node exists
+      ansible.builtin.file:
+        path: "files/keys"
+        mode: "0755"
+        state: directory
+      delegate_to: localhost
+
+    - name: Save SSH public key to control node
+      ansible.builtin.copy:
+        content: "{{ client_ssh_public_key['content'] | b64decode }}"
+        dest: "files/keys/{{ ansible_fqdn }}.pub"
+        mode: "0644"
+      delegate_to: localhost
+
+- name: Wake up the backup server
+  hosts: localhost
+  tasks:
+    - name: Wake up the backup server
+      community.general.wakeonlan:
+        mac: "{{ backup_server_mac }}"
+      changed_when: false
+
+    - name: Wait for server connection
+      ansible.builtin.wait_for_connection:
+        timeout: 120
+      delegate_to: "{{ borg_host }}"
+
+- name: Setup Ubuntu backupserver
+  hosts: backup
+  become: true
+  tasks:
+    - name: Print hosts
+      ansible.builtin.debug:
+        var: backup_clients
+
+    - name: Purge snap
+      ansible.builtin.include_role:
+        name: purge-snap
+      vars:
+        ansible_become: true
+
+    - name: Update and upgrade packages
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: true
+
+    - name: Install packages
+      ansible.builtin.apt:
+        name: "{{ borg_packages[ansible_os_family] }}"
+        state: present
+
+    - name: Ensure group exists
+      ansible.builtin.group:
+        name: "{{ borg_group }}"
+        state: present
+
+    - name: Create a backup user
+      ansible.builtin.user:
+        name: "{{ borg_user }}"
+        shell: /bin/bash
+        create_home: true
+        home: "{{ borg_home_path }}"
+        group: "{{ borg_group }}"
+        groups: ""
+        state: present
+
+    - name: Make sure home directory exists
+      ansible.builtin.file:
+        path: "{{ borg_home_path }}"
+        state: directory
+        owner: "{{ borg_user }}"
+        group: "{{ borg_group }}"
+        mode: "0700"
+
+    - name: Ensure .ssh directory exists
+      ansible.builtin.file:
+        path: "{{ borg_home_path }}/.ssh"
+        owner: "{{ borg_user }}"
+        group: "{{ borg_group }}"
+        mode: "0700"
+        state: directory
+
+    - name: Ensure backup pool directory exists
+      ansible.builtin.file:
+        path: "{{ borg_pool_path }}"
+        owner: "{{ borg_user }}"
+        group: "{{ borg_group }}"
+        mode: "0700"
+        state: directory
+
+    - name: Add clients to authorized_keys
+      ansible.posix.authorized_key:
+        user: "{{ borg_user }}"
+        key: "{{ lookup('file', 'files/keys/' ~ client ~ '.pub')}}"
+        key_options: 'command="cd {{ borg_pool_path }}/{{ client }}; borg serve --restrict-to-path {{ borg_pool_path }}/{{ client }}",restrict'
+      loop: "{{ backup_clients }}"
+      loop_control:
+        loop_var: client
+
+    - name: Set authorized_key permissions
+      ansible.builtin.file:
+        path: "{{ borg_home_path }}/.ssh/authorized_keys"
+        owner: "{{ borg_user }}"
+        group: "{{ borg_group }}"
+        mode: "0600"
+        state: file
+
+    - name: Create directories for each client's backup repo
+      ansible.builtin.file:
+        path: "{{ borg_pool_path }}/{{ client }}"
+        owner: "{{ borg_user }}"
+        group: "{{ borg_group }}"
+        mode: "0700"
+        state: directory
+      loop: "{{ backup_clients }}"
+      loop_control:
+        loop_var: client
+
+- name: Setup borg backup for each client
+  hosts: servers,pis,desktop
+  become: true
+  tasks:
+    - name: Fetch borg host key
+      ansible.builtin.set_fact:
+        borg_host_key: "{{ lookup('pipe', 'ssh-keyscan -H ' + borg_host) }}"
+
+    - name: Ensure the backup server is a known host
+      ansible.builtin.known_hosts:
+        name: "{{ borg_host }}"
+        key: "{{ borg_host_key }}"
+        path: "~/.ssh/known_hosts"
+
+    - name: Ensure backup script present
+      ansible.builtin.template:
+        src: borgbackup.sh.j2
+        dest: /root/borgbackup.sh
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Test if borg repo exists
+      ansible.builtin.command: >-
+        borg list {{ borg_user }}@{{ borg_host }}:{{ borg_repo }}
+      environment:
+        BORG_PASSPHRASE: "{{ borg_passphrase }}"
+      changed_when: false
+      failed_when: false
+      register: borg_test_output
+
+    - name: Fail if borg repo test gets unexpected output
+      ansible.builtin.fail:
+      when: borg_test_output.rc != 0 and borg_test_output.rc != 2
+
+    - name: Init the borg repo
+      ansible.builtin.command: >-
+        borg init -e repokey-blake2 {{ borg_user }}@{{ borg_host }}:{{ borg_repo }}
+      environment:
+        BORG_PASSPHRASE: "{{ borg_passphrase }}"
+      when: borg_test_output.rc != 0
+      changed_when: true

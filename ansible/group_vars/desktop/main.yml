@@ -1,0 +1,16 @@
+---
+borg_backup_directories:
+  - '/etc'
+  - '/home'
+  - '/root'
+
+borg_exclude_directories:
+  - '**/.cache'
+  - '**/.var'
+  - '**/.local'
+  - '**/venv'
+  - '**/node_modules'
+  - '/home/pstet/Games'
+  - '/home/pstet/games'
+  - '/home/pstet/work/vm'
+  - '/home/pstet/VirtualBox VMs'

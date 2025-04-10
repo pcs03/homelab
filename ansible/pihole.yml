@@ -1,0 +1,72 @@
+---
+- name: Install pihole on nixon and webster
+  hosts: nixon.pcstet.home,webster.pcstet.home
+  become: true
+  vars:
+    dc_directory: /srv/docker
+    pihole_dc_directory: "{{ dc_directory }}/pihole"
+    dc_user: pstet
+    dc_group: pstet
+  tasks:
+    - name: Ensure system packages are up-to-date
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: true
+
+    - name: Ensure docker is installed
+      ansible.builtin.include_role:
+        name: geerlingguy.docker
+      vars:
+        docker_edition: 'ce'
+        docker_packages:
+          - "docker-{{ docker_edition }}"
+          - "docker-{{ docker_edition }}-cli"
+          - "docker-{{ docker_edition }}-rootless-extras"
+        docker_packages_state: present
+
+    - name: Ensure pihole docker compose directory exists
+      ansible.builtin.file:
+        path: "{{ pihole_dc_directory }}"
+        state: directory
+        mode: "0755"
+        owner: "{{ dc_user }}"
+        group: "{{ dc_group }}"
+
+    - name: Ensure pihole compose.yml file is in place
+      ansible.builtin.copy:
+        src: pihole-compose.yml
+        dest: "{{ pihole_dc_directory }}/compose.yml"
+        mode: "0644"
+        owner: "{{ dc_user }}"
+        group: "{{ dc_group }}"
+
+    - name: Ensure pihole dnsmasq directory exists
+      ansible.builtin.file:
+        path: "{{ pihole_dc_directory }}/pihole/dnsmasq"
+        state: directory
+        mode: "0755"
+        owner: "{{ dc_user }}"
+        group: "{{ dc_group }}"
+
+    - name: Ensure dnsmasq hosts file is present
+      ansible.builtin.copy:
+        src: pihole-dnsmasq.conf
+        dest: "{{ pihole_dc_directory }}/pihole/dnsmasq/lab.conf"
+        mode: "0755"
+        owner: "{{ dc_user }}"
+        group: "{{ dc_group }}"
+
+    - name: Gather service facts
+      ansible.builtin.service_facts:
+
+    - name: Ensure systemd-resolved is disabled and stopped
+      ansible.builtin.service:
+        name: systemd-resolved
+        state: stopped
+        enabled: false
+      when: "'systemd-resolved' in ansible_facts.services"
+
+    - name: Ensure docker compose started
+      community.docker.docker_compose_v2:
+        project_src: "{{ pihole_dc_directory }}"
+        state: present

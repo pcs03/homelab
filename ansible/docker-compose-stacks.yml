@@ -26,8 +26,8 @@
       loop: "{{ docker_stacks }}"
 
     - name: Ensure docker-compose.yml files are present
-      ansible.builtin.template:
-        src: "{{ item.template }}"
+      ansible.builtin.copy:
+        src: "{{ item.compose }}"
         dest: "{{ docker_root_directory }}/{{ item.name }}/docker-compose.yml"
         mode: "0775"
         owner: pstet

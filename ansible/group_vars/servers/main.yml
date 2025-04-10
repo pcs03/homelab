@@ -1,0 +1,20 @@
+---
+borg_backup_directories:
+  - /etc
+  - /home
+  - /srv/data/disk0/media
+  - /srv/shared
+
+borg_exclude_directories:
+  - '**/.cache'
+  - '**/.var'
+  - '**/.local'
+  - '**/venv'
+  - '**/node_modules'
+  - '**/ollama/models'
+
+borg_docker:
+  root_directory: /srv/docker
+  stack_start_priority:
+    # Start these stacks first, if other stacks depend on it
+    - gluetun

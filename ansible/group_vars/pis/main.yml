@@ -1,0 +1,14 @@
+---
+borg_backup_directories:
+  - /etc
+  - /home
+
+borg_exclude_directories:
+  - '**/.cache'
+  - '**/.var'
+  - '**/.local'
+  - '**/venv'
+  - '**/node_modules'
+
+borg_docker:
+  root_directory: /srv/docker

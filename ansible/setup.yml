@@ -1,53 +1,34 @@
 ---
-- name: Setup for homelab devices running Ubuntu
+- name: Initial setup for each homelab device for use with ansible
   hosts: homelab
   become: true
-  vars:
-    timezone: "Europe/Amsterdam"
+  remote_user: pstet
   tasks:
-    - name: Ensure system is running Ubuntu
-      ansible.builtin.fail:
-        msg: "System must be running Ubuntu for this playbook"
-      when: ansible_facts['distribution'] != "Ubuntu"
+    - name: Add ansible user
+      ansible.builtin.user:
+        name: ansible
+        shell: /bin/bash
+        create_home: true
+        state: present
 
-    - name: Ensure system and packages are up to date
-      ansible.builtin.apt:
-        update_cache: true
-        upgrade: true
-
-    - name: Set timezone to "{{ timezone }}"
-      ansible.builtin.file:
-        src: /usr/share/zoneinfo/{{ timezone }}
-        dest: /etc/localtime
+    - name: Ensure ansible user has sudo permissions
+      ansible.builtin.lineinfile:
+        path: /etc/sudoers.d/ansible
+        line: "ansible ALL=(ALL) NOPASSWD: ALL"
+        mode: "0600"
         owner: root
         group: root
-        state: link
-        force: true
+        state: present
+        create: true
 
-    - name: Ensure Docker is installed
-      ansible.builtin.include_role:
-        name: geerlingguy.docker
+    - name: Ensure pstet user has public key
+      ansible.posix.authorized_key:
+        user: pstet
+        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+        state: present
 
-    - name: Ensure user `pstet` is in the docker group
-      ansible.builtin.user:
-        name: pstet
-        append: true
-        groups:
-          - docker
-
-    - name: Purge snap
-      block:
-        - name: Ensure snapd is purged from the system
-          ansible.builtin.apt:
-            purge: true
-            autoremove: true
-            name: snapd
-            state: absent
-
-        - name: Ensure snap preference is present
-          ansible.builtin.copy:
-            src: "files/nosnap.pref"
-            dest: /etc/apt/preferences.d/nosnap.pref
-            mode: "0644"
-            owner: root
-            group: root
+    - name: Ensure ansible user has public key
+      ansible.posix.authorized_key:
+        user: ansible
+        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+        state: present

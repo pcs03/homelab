@@ -1,0 +1,60 @@
+---
+# tasks file for purge-snap
+
+- name: Ensure system is running ubuntu
+  ansible.builtin.assert:
+    that: "ansible_distribution == 'Ubuntu'"
+
+- name: Check if snap is installed
+  ansible.builtin.shell: command -v snap > /dev/null 2>&1
+  register: snap_installed
+  changed_when: false
+  failed_when: false
+
+- name: Remove snap if installed
+  when: snap_installed.rc == 0
+  block:
+    - name: Gather installed snap packages
+      ansible.builtin.shell: |
+        set -o pipefail
+        snap list | awk 'NR>1 {print $1}'
+      register: snap_list_output
+      changed_when: false
+      args:
+        executable: /bin/bash # To make pipefail work
+
+    # core and snapd must be placed at the end of the list becuase they are dependencies to other snaps
+
+    - name: Extract core and snapd from snap list output
+      ansible.builtin.set_fact:
+        snap_list_filtered: "{{ snap_list_output.stdout_lines | difference(['core', 'snapd']) }}"
+
+    - name: Set snap packages
+      ansible.builtin.set_fact:
+        snap_packages: "{{ snap_list_filtered + ['core', 'snapd'] }}"
+
+    - name: Purge snap packages
+      community.general.snap:
+        name: "{{ package }}"
+        state: absent
+      loop: "{{ snap_packages }}"
+      loop_control:
+        loop_var: package
+
+    - name: Remove snapd
+      ansible.builtin.apt:
+        name: snapd
+        state: absent
+        purge: true
+
+- name: Ensure nosnap.pref file is present to prevent future installation
+  ansible.builtin.copy:
+    src: nosnap.pref
+    dest: /etc/apt/preferences.d/nosnap.pref
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true

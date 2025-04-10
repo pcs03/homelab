@@ -1,0 +1,8 @@
+---
+borg_home_path: /home/borg
+borg_pool_path: "{{ borg_home_path }}/repos"
+backup_clients: >-
+  {{
+    groups['servers'] + groups['desktop'] + groups['pis']
+    | unique
+  }}

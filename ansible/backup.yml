@@ -1,0 +1,38 @@
+---
+- name: Wake up the backup server
+  hosts: localhost
+  any_errors_fatal: true
+  tasks:
+    - name: Send wake on lan packet to the backup server
+      community.general.wakeonlan:
+        mac: "{{ backup_server_mac }}"
+      changed_when: false
+
+    - name: Wait for server connection
+      ansible.builtin.wait_for_connection:
+        delay: 10
+        timeout: 120
+      delegate_to: "{{ borg_host }}"
+
+- name: Execute backups on all homelab hosts
+  hosts: appservers
+  become: true
+  tasks:
+    - name: Ensure the backup script is up-to-date
+      ansible.builtin.template:
+        src: borgbackup.sh.j2
+        dest: "{{ client_backup_script_path }}"
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Run the backup script
+      ansible.builtin.command: "{{ client_backup_script_path }}"
+      throttle: 1
+
+- name: Shut down the backup server
+  hosts: backup
+  become: true
+  tasks:
+    - name: Shut down the system
+      community.general.shutdown:
