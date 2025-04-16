@@ -37,7 +37,7 @@
     - name: Retrieve borg stats
       borg_stats:
         pool_path: "/home/borg/repos"
-        clients: "{{ groups['servers'] + groups['pis'] }}"
+        clients: "{{ backup_clients }}"
       environment:
         BORG_PASSPHRASE: "{{ borg_passphrase }}"
       register: borg_stats

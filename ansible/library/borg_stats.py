@@ -134,14 +134,14 @@ def run_module():
 
             borg_stats['items'].append( {
                 "client": client,
-                "backup_datetime": backup_datetime,
-                "backup_archives_number": num_archives,
-                "backup_duration": backup_duration,
-                "backup_size_raw": backup_size_raw,
-                "backup_total_size_raw": backup_total_size_raw,
-                "backup_number_files": backup_number_files,
-                "backup_size": backup_size,
-                "backup_total_size": backup_total_size,
+                "datetime": backup_datetime,
+                "number_archives": num_archives,
+                "duration": backup_duration,
+                "size_raw": backup_size_raw,
+                "total_size_raw": backup_total_size_raw,
+                "number_files": backup_number_files,
+                "size": backup_size,
+                "total_size": backup_total_size,
             })
 
     except Exception as e:
@@ -150,18 +150,21 @@ def run_module():
     all_repo_backup_size_raw = 0
     all_repo_backup_total_size_raw = 0
     all_repo_backup_number_files = 0
+    all_repo_backup_number_archives = 0
 
     for item in borg_stats['items']:
-        all_repo_backup_size_raw += item['backup_size_raw']
-        all_repo_backup_total_size_raw += item['backup_total_size_raw']
-        all_repo_backup_number_files += item['backup_number_files']
+        all_repo_backup_size_raw += item['size_raw']
+        all_repo_backup_total_size_raw += item['total_size_raw']
+        all_repo_backup_number_files += item['number_files']
+        all_repo_backup_number_archives += item['number_archives']
 
     borg_stats['totals'] = {
-        "backup_size_raw": all_repo_backup_size_raw,
-        "backup_total_size_raw": all_repo_backup_total_size_raw,
-        "backup_total_number_files": all_repo_backup_number_files,
-        "backup_size": human_readable_bytes(all_repo_backup_size_raw),
-        "backup_total_size": human_readable_bytes(all_repo_backup_total_size_raw),
+        "size_raw": all_repo_backup_size_raw,
+        "total_size_raw": all_repo_backup_total_size_raw,
+        "number_files": all_repo_backup_number_files,
+        "number_archives": all_repo_backup_number_archives,
+        "size": human_readable_bytes(all_repo_backup_size_raw),
+        "total_size": human_readable_bytes(all_repo_backup_total_size_raw),
     }
 
 
