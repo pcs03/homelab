@@ -3,6 +3,7 @@ borg_backup_directories:
   - '/etc'
   - '/home'
   - '/root'
+  - '/opt'
 
 borg_exclude_directories:
   - '**/.cache'
