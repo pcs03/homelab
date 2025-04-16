@@ -3,6 +3,7 @@
 # Copyright: (c) 2025, Paolo Stet <info@pcstet.nl>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import (absolute_import, division, print_function)
+from datetime import datetime
 import subprocess
 import json
 __metaclass__ = type
@@ -121,9 +122,10 @@ def run_module():
             archive_list: list[str] = run_borg_command(["borg", "list", "--short", repo]).splitlines()
             num_archives = len(archive_list)
             last_archive = archive_list[-1]
+            backup_datetime = datetime.fromisoformat(last_archive).strftime("%d %B %Y %H:%M")
 
             borg_info = json.loads(run_borg_command(["borg", "info", "--json", f"{repo}::{last_archive}"]))
-            backup_duration = borg_info['archives'][0]['duration']
+            backup_duration = f"{round(borg_info['archives'][0]['duration'], 2)} s"
             backup_size_raw = borg_info['archives'][0]['stats']['deduplicated_size']
             backup_number_files = borg_info['archives'][0]['stats']['nfiles']
             backup_total_size_raw = borg_info['cache']['stats']['unique_csize']
@@ -131,6 +133,8 @@ def run_module():
             backup_size = human_readable_bytes(backup_size_raw)
 
             borg_stats[client] = {
+                "backup_datetime": backup_datetime,
+                "backup_archives_number": num_archives,
                 "backup_duration": backup_duration,
                 "backup_size_raw": backup_size_raw,
                 "backup_total_size_raw": backup_total_size_raw,
