@@ -212,3 +212,18 @@
         BORG_PASSPHRASE: "{{ borg_passphrase }}"
       when: borg_test_output.rc != 0
       changed_when: true
+
+- name: Ensure webserver for borg stats running on nixon
+  hosts: nixon.pcstet.home
+  become: true
+  tasks:
+    - name: Ensure docker compose stack installed and running
+      ansible.builtin.include_role:
+        name: nginx-docker
+      vars:
+        dc_directory: /srv/docker
+        nginx_dc_directory: "{{ dc_directory }}/nginx"
+        dc_user: pstet
+        dc_group: pstet
+        nginx_port: 8099
+        webserver_message: "Welcome to the default webserver landing page!"

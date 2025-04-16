@@ -30,9 +30,25 @@
       ansible.builtin.command: "{{ client_backup_script_path }}"
       throttle: 1
 
-- name: Shut down the backup server
+- name: Retrieve borg info and shut down
   hosts: backup
   become: true
   tasks:
+    - name: Retrieve borg stats
+      borg_stats:
+        pool_path: "/home/borg/repos"
+        clients: "{{ groups['servers'] + groups['pis'] }}"
+      environment:
+        BORG_PASSPHRASE: "{{ borg_passphrase }}"
+      register: borg_stats
+      become: true
+
+    - name: Place borg stats in a json file
+      ansible.builtin.copy:
+        content: "{{ borg_stats.stats }}"
+        dest: "/srv/docker/nginx/content/borg.json" # TODO: This needs to be changed to a variable
+        mode: "0755"
+      delegate_to: nixon.pcstet.home
+
     - name: Shut down the system
       community.general.shutdown:
