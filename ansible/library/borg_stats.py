@@ -113,7 +113,7 @@ def run_module():
 
     pool_path: str = module.params['pool_path']
     clients: list[str] = module.params['clients']
-    borg_stats = {}
+    borg_stats = {'items': []}
 
     try:
         for client in clients:
@@ -132,7 +132,8 @@ def run_module():
             backup_total_size = human_readable_bytes(backup_total_size_raw)
             backup_size = human_readable_bytes(backup_size_raw)
 
-            borg_stats[client] = {
+            borg_stats['items'].append( {
+                "client": client,
                 "backup_datetime": backup_datetime,
                 "backup_archives_number": num_archives,
                 "backup_duration": backup_duration,
@@ -141,7 +142,7 @@ def run_module():
                 "backup_number_files": backup_number_files,
                 "backup_size": backup_size,
                 "backup_total_size": backup_total_size,
-            }
+            })
 
     except Exception as e:
         module.fail_json(msg=str(e))
@@ -150,18 +151,19 @@ def run_module():
     all_repo_backup_total_size_raw = 0
     all_repo_backup_number_files = 0
 
-    for client in clients:
-        all_repo_backup_size_raw += borg_stats[client]['backup_size_raw']
-        all_repo_backup_total_size_raw += borg_stats[client]['backup_total_size_raw']
-        all_repo_backup_number_files += borg_stats[client]['backup_number_files']
+    for item in borg_stats['items']:
+        all_repo_backup_size_raw += item['backup_size_raw']
+        all_repo_backup_total_size_raw += item['backup_total_size_raw']
+        all_repo_backup_number_files += item['backup_number_files']
 
-    borg_stats['all'] = {
+    borg_stats['totals'] = {
         "backup_size_raw": all_repo_backup_size_raw,
         "backup_total_size_raw": all_repo_backup_total_size_raw,
         "backup_total_number_files": all_repo_backup_number_files,
         "backup_size": human_readable_bytes(all_repo_backup_size_raw),
         "backup_total_size": human_readable_bytes(all_repo_backup_total_size_raw),
     }
+
 
     # in the event of a successful module execution, you will want to
     # simple AnsibleModule.exit_json(), passing the key/value results
