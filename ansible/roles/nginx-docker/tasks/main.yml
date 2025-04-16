@@ -1,0 +1,56 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for nginx-docker
+
+- name: Ensure system packages are up-to-date
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: true
+
+- name: Ensure docker is installed
+  ansible.builtin.include_role:
+    name: geerlingguy.docker
+  vars:
+    docker_edition: 'ce'
+    docker_packages:
+      - "docker-{{ docker_edition }}"
+      - "docker-{{ docker_edition }}-cli"
+      - "docker-{{ docker_edition }}-rootless-extras"
+    docker_packages_state: present
+
+- name: Ensure nginx docker compose directory exists
+  ansible.builtin.file:
+    path: "{{ nginx_dc_directory }}"
+    state: directory
+    mode: "0755"
+    owner: "{{ dc_user }}"
+    group: "{{ dc_group }}"
+
+- name: Ensure nginx compose.yml file is in place
+  ansible.builtin.template:
+    src: compose.yml
+    dest: "{{ nginx_dc_directory }}/compose.yml"
+    mode: "0644"
+    owner: "{{ dc_user }}"
+    group: "{{ dc_group }}"
+
+- name: Ensure nginx content directory exists
+  ansible.builtin.file:
+    path: "{{ nginx_dc_directory }}/content"
+    state: directory
+    mode: "0755"
+    owner: "{{ dc_user }}"
+    group: "{{ dc_group }}"
+
+- name: Ensure index.html file is present
+  ansible.builtin.copy:
+    content: "{{ webserver_message }}"
+    dest: "{{ nginx_dc_directory }}/content/index.html"
+    mode: "0755"
+    owner: "{{ dc_user }}"
+    group: "{{ dc_group }}"
+
+- name: Ensure docker compose started
+  community.docker.docker_compose_v2:
+    project_src: "{{ nginx_dc_directory }}"
+    state: present

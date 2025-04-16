@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: MIT-0
+---
+# defaults file for nginx-docker
+
+dc_directory: /srv/docker
+nginx_dc_directory: "{{ dc_directory }}/nginx"
+dc_user: pstet
+dc_group: pstet
+nginx_port: 8099
+webserver_message: "Welcome to the default webserver landing page!"

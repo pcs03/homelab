@@ -1,0 +1,9 @@
+---
+services:
+  nginx_webserver:
+    container_name: nginx_webserver
+    volumes:
+      - ./content:/usr/share/nginx/html:ro
+    ports:
+      - "{{ nginx_port }}:8080"
+    image: nginxinc/nginx-unprivileged
