@@ -1,0 +1,76 @@
+---
+- name: Install caddy reverse proxy server
+  hosts: proxyservers
+  become: true
+  vars:
+    dc_directory: /srv/docker
+    caddy_dc_directory: "{{ dc_directory }}/caddy"
+    dc_user: pstet
+    dc_group: pstet
+    reverse_proxy_hosts:
+      - domain: start.example.home
+        forward_host: nixon.pcstet.home
+        forward_port: 8789
+      - domain: home.example.home
+        forward_host: nixon.pcstet.home
+        forward_port: 8123
+  handlers:
+    - name: Restart caddy
+      community.docker.docker_compose_v2:
+        project_src: "{{ caddy_dc_directory }}"
+        state: restarted
+
+  tasks:
+    - name: Ensure system packages are up-to-date
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: true
+
+    - name: Ensure docker is installed
+      ansible.builtin.include_role:
+        name: geerlingguy.docker
+      vars:
+        docker_edition: "ce"
+        docker_packages:
+          - "docker-{{ docker_edition }}"
+          - "docker-{{ docker_edition }}-cli"
+          - "docker-{{ docker_edition }}-rootless-extras"
+        docker_packages_state: present
+
+    - name: Ensure caddy docker compose directory exists
+      ansible.builtin.file:
+        path: "{{ caddy_dc_directory }}"
+        state: directory
+        mode: "0755"
+        owner: "{{ dc_user }}"
+        group: "{{ dc_group }}"
+
+    - name: Ensure caddy compose.yml file is in place
+      ansible.builtin.copy:
+        src: caddy-compose.yml
+        dest: "{{ caddy_dc_directory }}/compose.yml"
+        mode: "0644"
+        owner: "{{ dc_user }}"
+        group: "{{ dc_group }}"
+
+    - name: Ensure docker compose started
+      community.docker.docker_compose_v2:
+        project_src: "{{ caddy_dc_directory }}"
+        state: present
+
+    - name: Ensure caddy config directory exists
+      ansible.builtin.file:
+        path: "{{ caddy_dc_directory }}/caddy/conf"
+        state: directory
+        mode: "0755"
+        owner: "{{ dc_user }}"
+        group: "{{ dc_group }}"
+
+    - name: Ensure Caddyfile present
+      ansible.builtin.template:
+        src: caddyfile.j2
+        dest: "{{ caddy_dc_directory }}/caddy/conf/Caddyfile"
+        mode: "0755"
+        owner: "{{ dc_user }}"
+        group: "{{ dc_group }}"
+      notify: Restart caddy

@@ -1,0 +1,7 @@
+{% for proxy_host in reverse_proxy_hosts %}
+
+{{ proxy_host.domain }}:80 {
+    reverse_proxy {{ proxy_host.forward_host }}:{{ proxy_host.forward_port }}
+}
+
+{% endfor %}

@@ -6,13 +6,13 @@ services:
       - "53:53/tcp" # DNS TCP
       - "53:53/udp" # DNS UDP
       - "67:67/udp" # DHCP
-      - "8090:80/tcp" # Web UI
+      - "{{  pihole_web_port }}:80/tcp" # Web UI
     environment:
       TZ: "Europe/Amsterdam"
-      FTLCONF_webserver_api_password: 'adsnomore'
+      FTLCONF_webserver_api_password: '{{ pihole_web_pass }}'
       FTLCONF_dns_listeningMode: 'all'
       FTLCONF_misc_etc_dnsmasq_d: 'true'
-      FTLCONF_dns_upstreams: '1.1.1.1;1.0.0.1'
+      FTLCONF_dns_upstreams: '{{ pihole_upstream_servers|join(";") }}'
     volumes:
       - './pihole/config:/etc/pihole'
       - './pihole/dnsmasq:/etc/dnsmasq.d'

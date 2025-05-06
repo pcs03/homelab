@@ -1,0 +1,7 @@
+---
+- name: Test
+  hosts: dns
+  become: true
+  tasks:
+    - ansible.builtin.debug:
+        msg: "{{ lookup('template', 'pihole-compose.yml.j2') }}"

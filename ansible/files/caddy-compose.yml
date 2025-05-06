@@ -1,0 +1,11 @@
+---
+services:
+  caddy:
+    container_name: caddy
+    ports:
+      - 80:80
+    volumes:
+      - ./caddy/data:/data
+      - ./caddy/conf:/etc/caddy
+    image: caddy
+    restart: always

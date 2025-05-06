@@ -88,7 +88,9 @@
         mode: "0644"
         owner: root
         group: root
-      notify: Systemd daemon reload
+      notify:
+        - Systemd daemon reload
+        - Start wol.service
 
     - name: Ensure system daemon-reload is triggered
       ansible.builtin.meta: flush_handlers
@@ -169,6 +171,11 @@
     - name: Systemd daemon reload
       ansible.builtin.systemd:
         daemon_reload: true
+
+    - name: Start wol.service
+      ansible.builtin.service:
+        name: wol.service
+        state: started
 
 - name: Setup borg backup for each client
   hosts: servers,pis,desktop
